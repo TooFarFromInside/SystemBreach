@@ -18,16 +18,22 @@ public class GameManager : MonoBehaviour
     [Header("Enemy Prefabs")]
     public GameObject[] enemyPrefabs;
 
-    // СИСТЕМА ГЕНЕРАЦИИ
+    [Header("Trigger Prefab")]
+    public GameObject startTriggerPrefab;
+
+    // Система генерации
     private Dictionary<Vector2Int, Room> roomGrid = new Dictionary<Vector2Int, Room>();
     private Vector2Int[] directions = {
         Vector2Int.up, Vector2Int.right, Vector2Int.down, Vector2Int.left
     };
-    private Transform playerTransform; // ДОБАВИЛИ ЭТУ СТРОЧКУ
+    private Transform playerTransform;
+    private Room currentPlayerRoom;
+    private bool levelActive = false;
+    private float levelTimer = 0f;
+    private bool timerRunning = false;
 
     public static GameManager Instance { get; private set; }
 
-    // ... остальной код без изменений
     void Awake()
     {
         if (Instance == null)
@@ -43,38 +49,36 @@ public class GameManager : MonoBehaviour
 
     void Start()
     {
-        GenerateNewFloor();
+        InitializeGame();
     }
 
-    void OnApplicationQuit()
+    void Update()
     {
-        // Принудительная очистка при выходе
-        ClearCurrentFloorImmediate();
+        if (timerRunning)
+        {
+            levelTimer += Time.deltaTime;
+        }
+
+        TrackPlayerRoom();
     }
 
-    public void GenerateNewFloor()
+    void InitializeGame()
     {
-        // Очищаем предыдущий этаж
-        ClearCurrentFloorImmediate();
-        currentFloorScore = 0;
-
-        Debug.Log("=== GENERATING NEW FLOOR ===");
-
-        // Проверяем стартовую комнату
-        if (startRoomData == null)
-        {
-            Debug.LogError("StartRoomData is not assigned in GameManager!");
-            return;
-        }
-
-        if (startRoomData.roomPrefab == null)
-        {
-            Debug.LogError("StartRoomData.roomPrefab is null!");
-            return;
-        }
-
-        // Спавним стартовую комнату
+        // Спавним только стартовую комнату
         SpawnRoom(startRoomData, Vector2Int.zero);
+
+        // Спавним триггер в стартовой комнате
+        SpawnStartTrigger(Vector2Int.zero);
+
+        Debug.Log("Game initialized. Wait for trigger activation.");
+    }
+
+    public void StartLevel()
+    {
+        if (levelActive) return;
+
+        levelActive = true;
+        StartTimer();
 
         // Спавним начальные комнаты
         for (int i = 0; i < startingRooms; i++)
@@ -85,27 +89,65 @@ public class GameManager : MonoBehaviour
                 RoomData randomRoom = GetRandomRoomTemplate();
                 if (randomRoom != null)
                 {
-                    SpawnRoom(randomRoom, spawnPos);
+                    SpawnRoom(randomRoom, spawnPos, false); // Мобы неактивны
                 }
             }
         }
 
-        Debug.Log($"New floor generated! Level {currentLevel}, Rooms: {roomGrid.Count}");
+        Debug.Log($"Level {currentLevel} started! Timer running...");
+    }
+
+    void TrackPlayerRoom()
+    {
+        if (playerTransform == null)
+        {
+            GameObject player = GameObject.FindGameObjectWithTag("Player");
+            if (player != null) playerTransform = player.transform;
+            return;
+        }
+
+        foreach (var room in roomGrid.Values)
+        {
+            if (room != null && IsPositionInRoom(playerTransform.position, room.transform.position))
+            {
+                if (currentPlayerRoom != room)
+                {
+                    currentPlayerRoom = room;
+                    ActivateRoomEnemies(room);
+                    Debug.Log($"Player entered room: {room.gameObject.name}");
+                }
+                return;
+            }
+        }
+    }
+
+    bool IsPositionInRoom(Vector3 position, Vector3 roomCenter)
+    {
+        float halfSize = roomSize / 2f;
+        return position.x >= roomCenter.x - halfSize && position.x <= roomCenter.x + halfSize &&
+               position.z >= roomCenter.z - halfSize && position.z <= roomCenter.z + halfSize;
+    }
+
+    void ActivateRoomEnemies(Room room)
+    {
+        if (room == null || room.isCleared) return;
+
+        foreach (Transform enemy in room.transform)
+        {
+            if (enemy.CompareTag("Enemy"))
+            {
+                EnemyAI enemyAI = enemy.GetComponent<EnemyAI>();
+                if (enemyAI != null)
+                {
+                    enemyAI.SetActive(true);
+                }
+            }
+        }
     }
 
     Vector2Int FindValidSpawnPosition()
     {
         List<Vector2Int> possiblePositions = new List<Vector2Int>();
-
-        // Если это первый вызов и есть только стартовая комната
-        if (roomGrid.Count == 1 && roomGrid.ContainsKey(Vector2Int.zero))
-        {
-            foreach (Vector2Int dir in directions)
-            {
-                possiblePositions.Add(dir);
-            }
-            return possiblePositions[Random.Range(0, possiblePositions.Count)];
-        }
 
         // Ищем все занятые позиции и их соседей
         foreach (var occupiedPos in roomGrid.Keys)
@@ -127,7 +169,7 @@ public class GameManager : MonoBehaviour
         return possiblePositions.Count > 0 ? possiblePositions[Random.Range(0, possiblePositions.Count)] : Vector2Int.zero;
     }
 
-    void SpawnRoom(RoomData roomData, Vector2Int gridPos)
+    void SpawnRoom(RoomData roomData, Vector2Int gridPos, bool activateEnemies = false)
     {
         if (roomData == null || roomData.roomPrefab == null)
         {
@@ -135,30 +177,7 @@ public class GameManager : MonoBehaviour
             return;
         }
 
-        // НАХОДИМ ИГРОКА ЕСЛИ ЕЩЕ НЕ НАШЛИ
-        if (playerTransform == null)
-        {
-            GameObject player = GameObject.FindGameObjectWithTag("Player");
-            if (player != null)
-            {
-                playerTransform = player.transform;
-            }
-        }
-
-        // РАСЧЕТ ПОЗИЦИИ НА ОДНОМ УРОВНЕ С ИГРОКОМ
-        float playerY = 0f;
-        if (playerTransform != null)
-        {
-            playerY = playerTransform.position.y;
-        }
-
-        // ИСПРАВЛЕННАЯ СТРОКА: gridPos.y вместо gridPos.z
-        Vector3 worldPos = new Vector3(
-            gridPos.x * roomSize,
-            playerY,  // ТА ЖЕ ВЫСОТА ЧТО И У ИГРОКА
-            gridPos.y * roomSize  // ИСПРАВЛЕНО: y вместо z
-        );
-
+        Vector3 worldPos = new Vector3(gridPos.x * roomSize, 0, gridPos.y * roomSize);
         GameObject roomObj = Instantiate(roomData.roomPrefab, worldPos, Quaternion.identity);
 
         Room room = roomObj.GetComponent<Room>();
@@ -173,16 +192,17 @@ public class GameManager : MonoBehaviour
         // Заполняем врагами, если это не стартовая комната
         if (roomData != startRoomData)
         {
-            PopulateRoomWithEnemies(room);
+            PopulateRoomWithEnemies(room, activateEnemies);
         }
 
-        Debug.Log($"Spawned {roomData.roomName} at {gridPos} (world: {worldPos})");
+        Debug.Log($"Spawned {roomData.roomName} at {gridPos}");
     }
-    void PopulateRoomWithEnemies(Room room)
+
+    void PopulateRoomWithEnemies(Room room, bool activateImmediately = false)
     {
         if (enemyPrefabs == null || enemyPrefabs.Length == 0)
         {
-            Debug.LogWarning("No enemy prefabs assigned in GameManager!");
+            Debug.LogWarning("No enemy prefabs assigned!");
             return;
         }
 
@@ -195,43 +215,44 @@ public class GameManager : MonoBehaviour
 
             GameObject enemy = Instantiate(enemyPrefab, spawnPos, Quaternion.identity, room.transform);
 
-            // Добавляем трекер
             EnemyRoomTracker tracker = enemy.GetComponent<EnemyRoomTracker>();
-            if (tracker == null)
-            {
-                tracker = enemy.AddComponent<EnemyRoomTracker>();
-            }
+            if (tracker == null) tracker = enemy.AddComponent<EnemyRoomTracker>();
             tracker.room = room;
 
-            Debug.Log($"Spawned enemy in room: {room.gameObject.name}");
+            // Делаем врагов неактивными
+            EnemyAI enemyAI = enemy.GetComponent<EnemyAI>();
+            if (enemyAI != null && !activateImmediately)
+            {
+                enemyAI.SetActive(false);
+            }
         }
     }
 
     Vector3 GetEnemySpawnPosition(Transform roomTransform)
     {
         float halfSize = roomSize * 0.4f;
-        Vector3 localPos = new Vector3(
+        return roomTransform.position + new Vector3(
             Random.Range(-halfSize, halfSize),
-            1f,  // 1 единица над полом
+            1f,
             Random.Range(-halfSize, halfSize)
         );
+    }
 
-        Vector3 worldPos = roomTransform.position + localPos;
+    void SpawnStartTrigger(Vector2Int gridPos)
+    {
+        if (startTriggerPrefab == null) return;
 
-        // Убедимся что враг на правильной высоте
-        worldPos.y = roomTransform.position.y + 1f;
-
-        return worldPos;
+        Vector3 worldPos = new Vector3(gridPos.x * roomSize, 10f, gridPos.y * roomSize);
+        GameObject trigger = Instantiate(startTriggerPrefab, worldPos, Quaternion.identity);
     }
 
     RoomData GetRandomRoomTemplate()
     {
         if (enemyRoomTemplates == null || enemyRoomTemplates.Length == 0)
         {
-            Debug.LogError("No enemy room templates assigned in GameManager!");
+            Debug.LogError("No enemy room templates assigned!");
             return null;
         }
-
         return enemyRoomTemplates[Random.Range(0, enemyRoomTemplates.Length)];
     }
 
@@ -242,6 +263,9 @@ public class GameManager : MonoBehaviour
         currentFloorScore += room.roomData.scoreReward;
         Debug.Log($"Room cleared! Floor score: {currentFloorScore}/{pointsPerLevel}");
 
+        // Спавним награду
+        SpawnReward(room);
+
         // Спавним новую комнату
         Vector2Int newPos = FindValidSpawnPosition();
         if (newPos != Vector2Int.zero)
@@ -249,57 +273,93 @@ public class GameManager : MonoBehaviour
             RoomData newRoom = GetRandomRoomTemplate();
             if (newRoom != null)
             {
-                SpawnRoom(newRoom, newPos);
+                SpawnRoom(newRoom, newPos, false);
             }
         }
 
-        // Проверяем уровень
         CheckLevelProgress();
+    }
+
+    void SpawnReward(Room room)
+    {
+        if (room.rewardSpawnPoint == null) return;
+
+        GameObject reward = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        reward.transform.position = room.rewardSpawnPoint.position;
+        reward.transform.localScale = Vector3.one * 0.5f;
+        reward.GetComponent<Renderer>().material.color = Color.yellow;
+
+        RewardCollector collector = reward.AddComponent<RewardCollector>();
+        collector.scoreValue = room.roomData.scoreReward / 2;
     }
 
     void CheckLevelProgress()
     {
         if (currentFloorScore >= pointsPerLevel)
         {
-            currentLevel++;
-            Debug.Log($"LEVEL UP! Now level {currentLevel}");
-            GenerateNewFloor();
+            CompleteLevel();
         }
+    }
+
+    void CompleteLevel()
+    {
+        StopTimer();
+        Debug.Log($"Level {currentLevel} completed! Time: {levelTimer:F2}s");
+
+        // Сохраняем комнату игрока
+        Vector2Int playerRoomPos = currentPlayerRoom != null ? currentPlayerRoom.gridPosition : Vector2Int.zero;
+
+        // Уничтожаем все комнаты кроме текущей
+        ClearFloorExceptPlayerRoom(playerRoomPos);
+
+        // Спавним новый триггер
+        SpawnStartTrigger(playerRoomPos);
+
+        // Сбрасываем параметры
+        currentFloorScore = 0;
+        currentLevel++;
+        levelActive = false;
+
+        Debug.Log($"Ready for level {currentLevel}. Activate the trigger to start.");
+    }
+
+    void ClearFloorExceptPlayerRoom(Vector2Int playerRoomPos)
+    {
+        List<Vector2Int> roomsToDestroy = new List<Vector2Int>();
+
+        foreach (var kvp in roomGrid)
+        {
+            if (kvp.Key != playerRoomPos)
+            {
+                roomsToDestroy.Add(kvp.Key);
+            }
+        }
+
+        foreach (Vector2Int pos in roomsToDestroy)
+        {
+            if (roomGrid.ContainsKey(pos) && roomGrid[pos] != null)
+            {
+                Destroy(roomGrid[pos].gameObject);
+                roomGrid.Remove(pos);
+            }
+        }
+    }
+
+    void StartTimer()
+    {
+        timerRunning = true;
+    }
+
+    void StopTimer()
+    {
+        timerRunning = false;
     }
 
     public void AddScore(int points)
     {
         totalScore += points;
-        Debug.Log($"Total score: {totalScore}");
     }
 
-    void ClearCurrentFloorImmediate()
-    {
-        // Создаем временный список чтобы избежать модификации во время итерации
-        List<GameObject> roomsToDestroy = new List<GameObject>();
-
-        foreach (var room in roomGrid.Values)
-        {
-            if (room != null && room.gameObject != null)
-            {
-                roomsToDestroy.Add(room.gameObject);
-            }
-        }
-
-        // Уничтожаем все комнаты
-        foreach (var roomObj in roomsToDestroy)
-        {
-            if (roomObj != null)
-            {
-                DestroyImmediate(roomObj);
-            }
-        }
-
-        roomGrid.Clear();
-        Debug.Log("Floor cleared immediately");
-    }
-
-    // Визуализация в редакторе
     void OnDrawGizmos()
     {
         if (!Application.isPlaying) return;
@@ -309,14 +369,6 @@ public class GameManager : MonoBehaviour
         {
             Vector3 center = new Vector3(kvp.Key.x * roomSize, 0, kvp.Key.y * roomSize);
             Gizmos.DrawWireCube(center, new Vector3(roomSize, 0.1f, roomSize));
-
-            // Цвет в зависимости от состояния комнаты
-            if (kvp.Value.isCleared)
-            {
-                Gizmos.color = Color.green;
-                Gizmos.DrawCube(center, new Vector3(2f, 0.1f, 2f));
-                Gizmos.color = Color.cyan;
-            }
         }
     }
 }
