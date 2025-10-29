@@ -10,10 +10,10 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: d46f47e007a14c844980bade8bebc22f, type: 3}
-  m_Name: test1
+  m_Name: EnemyRoom
   m_EditorClassIdentifier: Assembly-CSharp::RoomData
-  roomPrefab: {fileID: 7825782491107660419, guid: d5bea6f6f619eb54c85601d5b6b5ee2c, type: 3}
-  roomName: test1
-  minEnemies: 1
-  maxEnemies: 1
+  roomPrefab: {fileID: 1148326048418770791, guid: b55df04c63a340945ac4fbf47e9d6398, type: 3}
+  roomName: 2
+  minEnemies: 2
+  maxEnemies: 4
   scoreReward: 100
