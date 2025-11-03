@@ -12,45 +12,69 @@ public class StartTrigger : MonoBehaviour
 
     void Start()
     {
+        Debug.Log("StartTrigger: Start called - Trigger initialized");
         startPosition = transform.position;
         if (visualObject == null) visualObject = gameObject;
     }
 
     void Update()
     {
+        // Парящая анимация
         if (isActive)
         {
             float newY = startPosition.y + Mathf.Sin(Time.time * hoverSpeed) * hoverHeight;
             visualObject.transform.position = new Vector3(transform.position.x, newY, transform.position.z);
         }
-    }
-
-    void OnTriggerEnter(Collider other)
-    {
-        if (!isActive || !other.CompareTag("Player")) return;
-        Debug.Log("Press E to start level");
-    }
-
-    void OnTriggerStay(Collider other)
-    {
-        if (!isActive || !other.CompareTag("Player")) return;
-
-        if (Input.GetKeyDown(KeyCode.E))
+        if (GetComponent<Interactable>().highlightEffect == null)
         {
-            Activate();
+            GameObject highlight = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            highlight.transform.SetParent(transform);
+            highlight.transform.localScale = Vector3.one * 1.2f;
+            highlight.transform.localPosition = Vector3.zero;
+
+            // Настраиваем материал
+            Renderer renderer = highlight.GetComponent<Renderer>();
+            renderer.material.color = new Color(1, 1, 0, 0.3f); // Полупрозрачный желтый
+
+            // Убираем коллайдер
+            Destroy(highlight.GetComponent<Collider>());
+
+            highlight.SetActive(false);
+            GetComponent<Interactable>().highlightEffect = highlight;
         }
     }
 
-    void Activate()
+    // СДЕЛАЕМ ПУБЛИЧНЫМ для вызова из Interactable
+    public void Activate()
     {
-        isActive = false;
-        Debug.Log("Level start triggered!");
+        if (!isActive) return;
 
+        isActive = false;
+
+        Debug.Log("=== START TRIGGER ACTIVATED ===");
+
+        if (GameManager.Instance == null)
+        {
+            Debug.LogError("StartTrigger: GameManager.Instance is NULL!");
+            return;
+        }
+
+        Debug.Log("StartTrigger: Calling GameManager.StartLevel()");
         GameManager.Instance.StartLevel();
 
         if (visualObject != null)
+        {
             visualObject.SetActive(false);
+        }
 
+        // Отключаем Interactable компонент
+        Interactable interactable = GetComponent<Interactable>();
+        if (interactable != null)
+        {
+            interactable.enabled = false;
+        }
+
+        Debug.Log("StartTrigger: Destroying trigger in 1 second");
         Destroy(gameObject, 1f);
     }
 }

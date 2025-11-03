@@ -1,5 +1,4 @@
 ﻿using UnityEngine;
-using UnityEngine.InputSystem;
 
 public class PlayerMovement : MonoBehaviour
 {
@@ -23,11 +22,8 @@ public class PlayerMovement : MonoBehaviour
 
     private CharacterController characterController;
     private Camera playerCamera;
-    private PlayerControls controls;
 
     private Vector3 moveDirection = Vector3.zero;
-    private Vector2 moveInput;
-    private Vector2 lookInput;
     private float rotationX = 0f;
 
     // Прыжки
@@ -44,13 +40,34 @@ public class PlayerMovement : MonoBehaviour
         characterController = GetComponent<CharacterController>();
         playerCamera = GetComponentInChildren<Camera>();
 
-        // Находим WeaponManager если не назначен
+        // Более надежный поиск WeaponManager
         if (weaponManager == null)
+        {
             weaponManager = GetComponent<WeaponManager>();
+            if (weaponManager == null)
+            {
+                weaponManager = GetComponentInChildren<WeaponManager>();
+                if (weaponManager == null)
+                {
+                    // ИСПРАВЛЕННАЯ СТРОКА - используем новый метод
+                    weaponManager = FindAnyObjectByType<WeaponManager>();
+                    if (weaponManager != null)
+                    {
+                        Debug.Log("Found WeaponManager in scene");
+                    }
+                }
+            }
+        }
 
-        controls = new PlayerControls();
+        if (weaponManager == null)
+        {
+            Debug.LogError("WeaponManager not found anywhere!");
+        }
+        else
+        {
+            Debug.Log($"WeaponManager found: {weaponManager.gameObject.name}");
+        }
     }
-
     void Start()
     {
         Cursor.lockState = CursorLockMode.Locked;
@@ -58,33 +75,10 @@ public class PlayerMovement : MonoBehaviour
         jumpsRemaining = enableDoubleJump ? 2 : 1;
     }
 
-    void OnEnable()
-    {
-        controls.Player.Enable();
-        controls.Player.Move.performed += OnMove;
-        controls.Player.Move.canceled += OnMove;
-        controls.Player.Look.performed += OnLook;
-        controls.Player.Look.canceled += OnLook;
-        controls.Player.Jump.performed += OnJump;
-        controls.Player.Fire.performed += OnFire;
-        controls.Player.Dash.performed += OnDash;
-    }
-
-    void OnDisable()
-    {
-        controls.Player.Move.performed -= OnMove;
-        controls.Player.Move.canceled -= OnMove;
-        controls.Player.Look.performed -= OnLook;
-        controls.Player.Look.canceled -= OnLook;
-        controls.Player.Jump.performed -= OnJump;
-        controls.Player.Fire.performed -= OnFire;
-        controls.Player.Dash.performed -= OnDash;
-        controls.Player.Disable();
-    }
-
     void Update()
     {
         CheckGrounded();
+        HandleInput();
         HandleMovement();
         HandleMouseLook();
         HandleDash();
@@ -92,42 +86,66 @@ public class PlayerMovement : MonoBehaviour
         // Передаем данные мыши в WeaponManager для sway эффекта
         if (weaponManager != null)
         {
-            weaponManager.SetMouseDelta(lookInput);
+            Vector2 mouseDelta = new Vector2(Input.GetAxis("Mouse X"), Input.GetAxis("Mouse Y"));
+            weaponManager.SetMouseDelta(mouseDelta);
         }
-
-        // УБРАЛИ отладочную клавишу P со старым Input
-        // Вместо этого можно добавить через новую систему ввода если нужно
     }
 
-    // ========== INPUT SYSTEM CALLBACKS ==========
+    // ========== INPUT HANDLING ==========
 
-    private void OnMove(InputAction.CallbackContext context)
+    void HandleInput()
     {
-        moveInput = context.ReadValue<Vector2>();
-    }
-
-    private void OnLook(InputAction.CallbackContext context)
-    {
-        lookInput = context.ReadValue<Vector2>();
-    }
-
-    private void OnJump(InputAction.CallbackContext context)
-    {
-        if (jumpsRemaining > 0)
+        // Прыжок
+        if (Input.GetButtonDown("Jump") && jumpsRemaining > 0)
         {
             moveDirection.y = jumpForce;
             jumpsRemaining--;
             Debug.Log("Jump! Jumps remaining: " + jumpsRemaining);
         }
-    }
 
-    private void OnFire(InputAction.CallbackContext context)
-    {
-        Debug.Log("Fire input detected!"); // ДОБАВЬ ЭТУ СТРОЧКУ
-
-        // Используем систему оружия вместо прямой стрельбы
-        if (weaponManager != null && weaponManager.currentWeapon != null)
+        // Стрельба
+        if (Input.GetButtonDown("Fire1"))
         {
+            Debug.Log("Fire input detected! (Old Input)");
+
+            // Безопасная проверка оружия
+            if (weaponManager == null)
+            {
+                Debug.LogError("WeaponManager is null! Attempting to find it...");
+                weaponManager = GetComponent<WeaponManager>();
+                if (weaponManager == null)
+                {
+                    Debug.LogError("WeaponManager not found on player!");
+                    return;
+                }
+            }
+
+            // ВЫЗОВ ОТЛАДКИ ПРИ СТРЕЛЬБЕ
+            if (weaponManager != null)
+            {
+                weaponManager.DebugWeaponState();
+            }
+
+            if (weaponManager.currentWeapon == null)
+            {
+                Debug.LogError("No current weapon equipped! Attempting to equip weapon at index 0...");
+
+                // Пытаемся принудительно экипировать оружие
+                if (weaponManager.weapons != null && weaponManager.weapons.Length > 0 && weaponManager.weapons[0] != null)
+                {
+                    // ИСПОЛЬЗУЕМ ПУБЛИЧНЫЙ МЕТОД
+                    weaponManager.ForceEquipWeapon(0);
+                    Debug.Log("Attempted to equip weapon at index 0");
+
+                    // Снова показываем состояние
+                    if (weaponManager != null)
+                    {
+                        weaponManager.DebugWeaponState();
+                    }
+                }
+                return;
+            }
+
             Weapon currentWeapon = weaponManager.currentWeapon.GetComponent<Weapon>();
             if (currentWeapon != null)
             {
@@ -135,20 +153,23 @@ public class PlayerMovement : MonoBehaviour
             }
             else
             {
-                Debug.LogError("Weapon component not found on current weapon!");
+                Debug.LogError($"Weapon component not found on {weaponManager.currentWeapon.name}!");
             }
         }
-        else
-        {
-            Debug.LogError("WeaponManager or currentWeapon is null!");
-        }
-    }
 
-    private void OnDash(InputAction.CallbackContext context)
-    {
-        if (!isDashing)
+        // Рывок
+        if (Input.GetKeyDown(KeyCode.LeftShift) && !isDashing)
         {
             StartDash();
+        }
+
+        // Отладка по клавише P
+        if (Input.GetKeyDown(KeyCode.P))
+        {
+            if (weaponManager != null)
+            {
+                weaponManager.DebugWeaponState();
+            }
         }
     }
 
@@ -166,24 +187,25 @@ public class PlayerMovement : MonoBehaviour
 
     void HandleMouseLook()
     {
-        if (lookInput.magnitude > 0)
-        {
-            float mouseX = lookInput.x * mouseSensitivity * Time.deltaTime;
-            float mouseY = lookInput.y * mouseSensitivity * Time.deltaTime;
+        float mouseX = Input.GetAxis("Mouse X") * mouseSensitivity;
+        float mouseY = Input.GetAxis("Mouse Y") * mouseSensitivity;
 
-            transform.Rotate(0, mouseX, 0);
+        transform.Rotate(0, mouseX, 0);
 
-            rotationX -= mouseY;
-            rotationX = Mathf.Clamp(rotationX, -verticalLookLimit, verticalLookLimit);
-            playerCamera.transform.localRotation = Quaternion.Euler(rotationX, 0, 0);
-        }
+        rotationX -= mouseY;
+        rotationX = Mathf.Clamp(rotationX, -verticalLookLimit, verticalLookLimit);
+        playerCamera.transform.localRotation = Quaternion.Euler(rotationX, 0, 0);
     }
 
     void HandleMovement()
     {
         if (isDashing) return; // Не управляем движением во время рывка
 
-        float speed = walkSpeed;
+        float speed = Input.GetKey(KeyCode.LeftShift) ? runSpeed : walkSpeed;
+
+        // Получаем ввод с клавиатуры
+        float horizontal = Input.GetAxis("Horizontal");
+        float vertical = Input.GetAxis("Vertical");
 
         Vector3 forward = transform.forward;
         Vector3 right = transform.right;
@@ -192,7 +214,7 @@ public class PlayerMovement : MonoBehaviour
         forward.Normalize();
         right.Normalize();
 
-        Vector3 desiredMove = forward * moveInput.y + right * moveInput.x;
+        Vector3 desiredMove = forward * vertical + right * horizontal;
 
         if (isGrounded)
         {
@@ -222,11 +244,15 @@ public class PlayerMovement : MonoBehaviour
         isDashing = true;
         dashTimeRemaining = dashDuration;
 
+        // Получаем текущее направление движения
+        float horizontal = Input.GetAxis("Horizontal");
+        float vertical = Input.GetAxis("Vertical");
+
         // Направление рывка
-        if (moveInput.magnitude > 0.1f)
+        if (Mathf.Abs(horizontal) > 0.1f || Mathf.Abs(vertical) > 0.1f)
         {
             // Рывок в сторону движения
-            Vector3 moveDir = (transform.forward * moveInput.y + transform.right * moveInput.x).normalized;
+            Vector3 moveDir = (transform.forward * vertical + transform.right * horizontal).normalized;
             dashDirection = moveDir;
         }
         else
@@ -268,8 +294,7 @@ public class PlayerMovement : MonoBehaviour
         GUI.Label(new Rect(10, 10, 300, 30), $"Grounded: {isGrounded}", style);
         GUI.Label(new Rect(10, 40, 300, 30), $"Jumps: {jumpsRemaining}", style);
         GUI.Label(new Rect(10, 70, 300, 30), $"Dashing: {isDashing}", style);
-        GUI.Label(new Rect(10, 100, 300, 30), $"Move Input: {moveInput}", style);
-        GUI.Label(new Rect(10, 130, 300, 30), $"Look Input: {lookInput}", style);
+        GUI.Label(new Rect(10, 100, 300, 30), $"Speed: {walkSpeed}", style);
 
         // Информация об оружии
         if (weaponManager != null && weaponManager.currentWeapon != null)
@@ -277,8 +302,8 @@ public class PlayerMovement : MonoBehaviour
             Weapon weapon = weaponManager.currentWeapon.GetComponent<Weapon>();
             if (weapon != null)
             {
-                GUI.Label(new Rect(10, 160, 300, 30), $"Weapon: {weapon.weaponName}", style);
-                GUI.Label(new Rect(10, 190, 300, 30), $"Damage: {weapon.damage}", style);
+                GUI.Label(new Rect(10, 130, 300, 30), $"Weapon: {weapon.weaponName}", style);
+                GUI.Label(new Rect(10, 160, 300, 30), $"Damage: {weapon.damage}", style);
             }
         }
     }

@@ -377,7 +377,6 @@ GameObject:
   - component: {fileID: 1106363185}
   - component: {fileID: 1106363186}
   - component: {fileID: 1106363187}
-  - component: {fileID: 1106363188}
   m_Layer: 0
   m_Name: GameRoot
   m_TagString: Untagged
@@ -413,17 +412,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 06f9d6b99d3c03149ae347c29c69311f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GameManager
+  startingRooms: 2
   pointsPerLevel: 1000
   currentLevel: 1
   totalScore: 0
   currentFloorScore: 0
-  gridSize: 7
   startRoomData: {fileID: 11400000, guid: 215958b673bef104e8aac13428436f8f, type: 2}
   enemyRoomTemplates:
   - {fileID: 11400000, guid: c7f044d66171e4549b3e8cded4227e8d, type: 2}
   - {fileID: 11400000, guid: c7f044d66171e4549b3e8cded4227e8d, type: 2}
   - {fileID: 11400000, guid: c7f044d66171e4549b3e8cded4227e8d, type: 2}
-  roomSize: 42
+  roomSize: 3
   enemyPrefabs:
   - {fileID: 6745541991216704987, guid: 9ad7e6a7590483d4ba766c1c05e45a17, type: 3}
   startTriggerPrefab: {fileID: 2678015765828027802, guid: c6896c3ddeccea04fa155eac5597174b, type: 3}
@@ -459,18 +458,6 @@ MonoBehaviour:
   m_MinRegionArea: 2
   m_NavMeshData: {fileID: 0}
   m_BuildHeightMesh: 0
---- !u!114 &1106363188
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1106363184}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 47a1b41524533fa48a600b9b4153dee2, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::WeaponDebug
 --- !u!1 &1276426687
 GameObject:
   m_ObjectHideFlags: 0
@@ -782,7 +769,7 @@ Transform:
   m_GameObject: {fileID: 2141614150}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 121.3, y: 4.13, z: 119.6}
+  m_LocalPosition: {x: 0, y: 4.13, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -808,10 +795,10 @@ MonoBehaviour:
   dashDuration: 0.3
   jumpForce: 7
   gravity: 20
-  mouseSensitivity: 3
+  mouseSensitivity: 7
   verticalLookLimit: 80
   enableDoubleJump: 1
-  weaponManager: {fileID: 2141614154}
+  weaponManager: {fileID: 0}
 --- !u!143 &2141614153
 CharacterController:
   m_ObjectHideFlags: 0
@@ -851,17 +838,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::WeaponManager
   weapons:
   - {fileID: 1907145451}
-  - {fileID: 1907145451}
   currentWeaponIndex: 0
   weaponParent: {fileID: 1276426688}
-  autoSwitchOnPickup: 1
   swayAmount: 0.02
   swaySmoothness: 2
   swayMaxAmount: 0.1
-  enableSway: 1
-  switchSmoothTime: 0.2
-  enableWeaponSwitch: 1
-  createDefaultWeaponIfEmpty: 1
 --- !u!114 &2141614155
 MonoBehaviour:
   m_ObjectHideFlags: 0

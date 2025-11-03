@@ -56,7 +56,7 @@ GameObject:
   - component: {fileID: 334529541112624605}
   - component: {fileID: 4598449062090456068}
   m_Layer: 0
-  m_Name: systemRoomTile
+  m_Name: systemRoomTile 1
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -95,7 +95,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 58cc4f2035455cd41b152bfe73c8143d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Room
-  roomData: {fileID: 11400000, guid: 215958b673bef104e8aac13428436f8f, type: 2}
+  roomData: {fileID: 11400000, guid: c7f044d66171e4549b3e8cded4227e8d, type: 2}
   gridPosition: {x: 0, y: 0}
   isCleared: 1
   enemiesInRoom: []

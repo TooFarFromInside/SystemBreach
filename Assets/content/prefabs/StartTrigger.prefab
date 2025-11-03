@@ -14,6 +14,7 @@ GameObject:
   - component: {fileID: 1423267868614071104}
   - component: {fileID: 2972003578080085457}
   - component: {fileID: 1640417808226557125}
+  - component: {fileID: 8095051271852924396}
   m_Layer: 0
   m_Name: StartTrigger
   m_TagString: Interactable
@@ -30,7 +31,7 @@ Transform:
   m_GameObject: {fileID: 2678015765828027802}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 4.41, y: -4.02, z: 5.98}
+  m_LocalPosition: {x: 4.41, y: -3.435, z: 5.98}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -107,7 +108,7 @@ SphereCollider:
     serializedVersion: 2
     m_Bits: 0
   m_LayerOverridePriority: 0
-  m_IsTrigger: 0
+  m_IsTrigger: 1
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
@@ -125,7 +126,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b42c2ee1a81898046820ca62fa68ea39, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::StartTrigger
-  hoverHeight: 3
+  hoverHeight: 0.5
   hoverSpeed: 2
   visualObject: {fileID: 0}
 --- !u!135 &1640417808226557125
@@ -149,3 +150,18 @@ SphereCollider:
   serializedVersion: 3
   m_Radius: 0.5
   m_Center: {x: 0, y: 0, z: 0}
+--- !u!114 &8095051271852924396
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2678015765828027802}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 07a40fd8fe2f77043b8f53c8c793b917, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Interactable
+  interactionRange: 5
+  interactionKey: 101
+  highlightEffect: {fileID: 0}
